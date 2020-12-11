@@ -1,0 +1,2 @@
+ValidatorFull.java: Validator.java uk/ac/qub/csc3021/graph/*.java
+		    ( sed -e '/^import uk.ac.qub/d;/^import/!d' uk/ac/qub/csc3021/graph/*.java Validator.java ; sed -e '/^package/d;/^import/d;s/public class/class/;s/public abstract class/abstract class/' uk/ac/qub/csc3021/graph/*.java ; sed -e '/^import/d;s/public class/class/' Validator.java ) > ValidatorFull.java

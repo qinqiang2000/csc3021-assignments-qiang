@@ -1,0 +1,5 @@
+*.class
+*.java~
+*.sh~
+*.zip
+.DS_Store
