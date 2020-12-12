@@ -21,6 +21,7 @@ public class SparseMatrixCSC extends SparseMatrix {
     int num_vertices; // Number of vertices in the graph
     int num_edges;    // Number of edges in the graph
 
+
     public SparseMatrixCSC(String file) {
         try {
             InputStreamReader is
