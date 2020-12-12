@@ -19,7 +19,7 @@ import uk.ac.qub.csc3021.graph.*;
 
 // Main class with main() method. Performs the PageRank computation until
 // convergence is reached.
-class Driver {
+class Driver1 {
     public static void main(String args[]) {
         if (args.length < 4) {
             System.err.println("Usage: java Driver format inputfile algorithm outputfile");

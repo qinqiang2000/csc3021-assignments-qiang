@@ -38,11 +38,8 @@ public class ParallelContextQ2 extends ParallelContext {
         try {
             cyclicBarrier.await();
         }
-        catch (InterruptedException e) {
-            System.out.println("fuck off");
-        }
-        catch (BrokenBarrierException e) {
-            System.out.println("fuck off");
+        catch (InterruptedException | BrokenBarrierException e) {
+            System.out.println("thrown an exception!");
         }
     }
 
@@ -66,16 +63,13 @@ public class ParallelContextQ2 extends ParallelContext {
 
 
         public void run() {
-            matrix.iterate( relax, from, to );
 
             try {
+                matrix.iterate( relax, from, to );
                 barrier.await();
             }
-            catch (InterruptedException e) {
-                System.out.println("fuck off");
-            }
-            catch (BrokenBarrierException e) {
-                System.out.println("fuck off");
+            catch (Exception e) {
+                System.out.println("thrown an exception!");
             }
         }
     }

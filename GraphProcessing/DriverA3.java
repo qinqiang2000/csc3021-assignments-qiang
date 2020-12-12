@@ -18,7 +18,7 @@ import uk.ac.qub.csc3021.graph.*;
 
 // Main class with main() method. Performs the PageRank computation until
 // convergence is reached.
-class Driver3 {
+class Driver {
    public static void main( String args[] ) {
 	if( args.length < 6 ) {
 	    System.err.println( "Usage: java Driver inputfile-COO inputfile-CSR inputfile-CSC algorithm num-threads outputfile" );
