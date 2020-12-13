@@ -42,7 +42,7 @@ public class SparseMatrixCSC extends SparseMatrix {
 
         inputStream = new FileInputStream(inputFile);
 
-        byte[] byteRead = new byte[8192];
+        byte[] byteRead = new byte[32768];
 
         UTF8Processor proc = new UTF8Processor(num_vertices, num_edges, numThreads);
 

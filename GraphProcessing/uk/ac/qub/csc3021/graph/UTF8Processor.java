@@ -35,7 +35,7 @@ public class UTF8Processor {
 
     public boolean processBytes(byte[] bytes) throws UnsupportedEncodingException {
 
-        for (int i = 0; i < 8192; i++) {
+        for (int i = 0; i < 32768; i++) {
 
             charNumber++;
 
