@@ -1,16 +1,7 @@
 package uk.ac.qub.csc3021.graph;
 
-import java.io.File;
-import java.io.BufferedReader;
-import java.io.InputStreamReader;
-import java.io.FileInputStream;
-import java.io.BufferedWriter;
-import java.io.OutputStreamWriter;
-import java.io.FileOutputStream;
-import java.io.PrintWriter;
-import java.io.IOException;
-import java.io.FileNotFoundException;
-import java.io.UnsupportedEncodingException;
+import java.io.*;
+import java.util.concurrent.CyclicBarrier;
 
 // This class represents the adjacency matrix of a graph as a sparse matrix
 // in compressed sparse columns format (CSC). The incoming edges for each
@@ -22,21 +13,11 @@ public class SparseMatrixCSC extends SparseMatrix {
     int num_edges;    // Number of edges in the graph
 
 
-    public SparseMatrixCSC(String file) {
+    public SparseMatrixCSC(String file, int numThreads) {
         try {
-            InputStreamReader is
-                    = new InputStreamReader(new FileInputStream(file), "UTF-8");
-            BufferedReader rd = new BufferedReader(is);
-            readFile(rd);
-        } catch (FileNotFoundException e) {
-            System.err.println("File not found: " + e);
-            return;
-        } catch (UnsupportedEncodingException e) {
-            System.err.println("Unsupported encoding exception: " + e);
-            return;
+            readFile(file, numThreads);
         } catch (Exception e) {
-            System.err.println("Exception: " + e);
-            return;
+            e.printStackTrace();
         }
     }
 
@@ -47,33 +28,58 @@ public class SparseMatrixCSC extends SparseMatrix {
         return Integer.parseInt(line);
     }
 
-    void readFile(BufferedReader rd) throws Exception {
-        String line = rd.readLine();
-        if (line == null)
-            throw new Exception("premature end of file");
-        if (!line.equalsIgnoreCase("CSC") && !line.equalsIgnoreCase("CSC-CSR"))
-            throw new Exception("file format error -- header");
+    void readFile(String inputFile, int numThreads) throws Exception {
+        InputStream inputStream = new FileInputStream(inputFile);
+        InputStreamReader is = new InputStreamReader(inputStream, "UTF-8");
+        BufferedReader rd = new BufferedReader(is);
+
+        rd.readLine();
 
         num_vertices = getNext(rd);
         num_edges = getNext(rd);
-        index = new int[num_vertices + 1];
-        sources = new int[num_edges];
-        int sourcePosition = 0;
 
-        for (int i = 0; i < num_vertices; ++i) {
-            line = rd.readLine();
-            if (line == null)
-                throw new Exception("premature end of file");
-            String elm[] = line.split(" ");
-            assert Integer.parseInt(elm[0]) == i : "Error in CSC file";
-            index[i] = sourcePosition;
-            for (int j = 1; j < elm.length; ++j) {
-                int src = Integer.parseInt(elm[j]);
-                sources[sourcePosition] = src;
-                sourcePosition++;
+        rd.close();
+
+        inputStream = new FileInputStream(inputFile);
+
+        byte[] byteRead = new byte[8192];
+
+        UTF8Processor proc = new UTF8Processor(num_vertices, num_edges, numThreads);
+
+        System.out.println("vertices read: " + num_vertices);
+        System.out.println("edges read: " + num_edges);
+
+        long startPreProcess = System.nanoTime();
+        while ((inputStream.read(byteRead)) != -1) {
+            boolean end = proc.processBytes(byteRead);
+            if(end) {
+                break;
             }
         }
+
+        System.out.println("vertices calculated: " + proc.lineNumber);
+        System.out.println("edges calculated: " + proc.edgeNumber);
+
+        index = new int[num_vertices + 1];
+        sources = new int[num_edges];
+
         index[num_vertices] = num_edges;
+
+        CyclicBarrier barrier = new CyclicBarrier(numThreads+1);
+
+        for(int i = 0; i < numThreads-1; i++) {
+            ReadFileThread thread = new ReadFileThread(proc.chunkStarts[i][0], proc.chunkStarts[i+1][0], inputFile, sources, index, barrier, proc.chunkStarts[i][1], proc.chunkStarts[i][2]);
+            thread.start();
+        }
+
+        ReadFileThread thread = new ReadFileThread(proc.chunkStarts[numThreads-1][0], num_vertices, inputFile, sources, index, barrier, proc.chunkStarts[numThreads-1][1], proc.chunkStarts[numThreads-1][2]);
+        thread.start();
+
+        barrier.await();
+
+        double timeToPreProcess = (double) (System.nanoTime() - startPreProcess) * 1e-9;
+        System.err.println("Time in preprocess: " + timeToPreProcess + " seconds");
+
     }
 
     // Return number of vertices in the graph

@@ -41,7 +41,7 @@ class Validator {
 	if( format.equalsIgnoreCase( "CSR" ) ) {
 	    matrix = new SparseMatrixCSR( inputFile );
 	} else if( format.equalsIgnoreCase( "CSC" ) ) {
-	    matrix = new SparseMatrixCSC( inputFile );
+	    matrix = new SparseMatrixCSC( inputFile, 1 );
 	} else if( format.equalsIgnoreCase( "COO" ) ) {
 	    matrix = new SparseMatrixCOO( inputFile );
 	} else {

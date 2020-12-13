@@ -1,5 +1,7 @@
 package uk.ac.qub.csc3021.graph;
 
+import java.util.ArrayList;
+import java.util.List;
 import java.util.concurrent.atomic.AtomicIntegerArray;
 
 // Calculate the connected components using disjoint set data structure
@@ -79,8 +81,16 @@ public class DisjointSetCC {
 
             Node current = parents[x];
 
+            List<Node> nodes = new ArrayList<>();
+
+
             while (current.parent != current) {
                 current = current.parent;
+            }
+
+            for (Node node:
+                    nodes) {
+                node.parent = current;
             }
 
             return current.name;
@@ -89,8 +99,16 @@ public class DisjointSetCC {
         private Node findNode(int x) {
             Node current = parents[x];
 
+            List<Node> nodes = new ArrayList<>();
+
             while (current.parent != current) {
+                nodes.add(current);
                 current = current.parent;
+            }
+
+            for (Node node:
+                 nodes) {
+                node.parent = current;
             }
 
             return current;

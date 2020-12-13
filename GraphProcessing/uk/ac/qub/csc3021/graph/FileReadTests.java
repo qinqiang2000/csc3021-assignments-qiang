@@ -1,6 +1,7 @@
 package uk.ac.qub.csc3021.graph;
 
 import java.io.*;
+import java.util.concurrent.CyclicBarrier;
 
 public class FileReadTests {
 
@@ -8,8 +9,6 @@ public class FileReadTests {
 
         String inputFile = args[0];
         int numThreads = Integer.parseInt(args[1]);
-
-
 
         InputStream inputStream = new FileInputStream(inputFile);
         InputStreamReader is = new InputStreamReader(inputStream, "UTF-8");
@@ -34,26 +33,36 @@ public class FileReadTests {
 
         long startPreProcess = System.nanoTime();
         while ((inputStream.read(byteRead)) != -1) {
-            proc.processBytes(byteRead);
+            boolean end = proc.processBytes(byteRead);
+            if(end) {
+                break;
+            }
         }
 
         System.out.println("vertices calculated: " + proc.lineNumber);
         System.out.println("edges calculated: " + proc.edgeNumber);
 
+        int[] index = new int[numVertices + 1];
+        int[] sources = new int[numEdges];
+
+        index[numVertices] = numEdges;
+
+        CyclicBarrier barrier = new CyclicBarrier(numThreads+1);
+
+        for(int i = 0; i < numThreads-1; i++) {
+            ReadFileThread thread = new ReadFileThread(proc.chunkStarts[i][0], proc.chunkStarts[i+1][0], inputFile, sources, index, barrier, proc.chunkStarts[i][1], proc.chunkStarts[i][2]);
+            thread.start();
+        }
+
+        ReadFileThread thread = new ReadFileThread(proc.chunkStarts[numThreads-1][0], numVertices, inputFile, sources, index, barrier, proc.chunkStarts[numThreads-1][1], proc.chunkStarts[numThreads-1][2]);
+        thread.start();
+
+        barrier.await();
+
         double timeToPreProcess = (double) (System.nanoTime() - startPreProcess) * 1e-9;
         System.err.println("Time in preprocess: " + timeToPreProcess + " seconds");
 
-        for(int i = 0; i < numThreads; i++) {
-
-            System.out.println("Thread " + i + ": " + proc.chunkStops[i]);
-
-        }
-
-        System.out.println("finished!");
     }
-
-    //3072630
-
 
 
     static int getNext(BufferedReader rd) throws Exception {
@@ -64,56 +73,3 @@ public class FileReadTests {
     }
 }
 
-class UTF8Processor {
-
-    private int numVertices;
-    private int numEdges;
-    private int targetChunkSize;
-    private int numThreads;
-    private int threadId = 0;
-    private int nextChunkStop;
-
-    public int[] chunkStops;
-
-
-    public UTF8Processor(int numVertices, int numEdges, int numThreads) {
-        this.numVertices = numVertices;
-        this.numEdges = numEdges;
-        this.numThreads = numThreads;
-
-        targetChunkSize = (numEdges + numThreads - 1) / numThreads;
-        nextChunkStop = targetChunkSize;
-
-        chunkStops = new int[numThreads];
-
-        chunkStops[numThreads-1] = numVertices;
-    }
-
-    public int lineNumber = 0;
-    public int edgeNumber = 0;
-
-    public void processBytes(byte[] bytes) throws UnsupportedEncodingException {
-
-        for (int i = 0; i < 8192; i++) {
-
-            if (bytes[i] == 0x0a) {
-                lineNumber++;
-
-                if(lineNumber == numVertices+3) {
-                    return;
-                }
-            }
-
-            if (bytes[i] == 0x20) {
-                edgeNumber++;
-                if(edgeNumber > nextChunkStop) {
-                    nextChunkStop += targetChunkSize;
-                    chunkStops[threadId++] = lineNumber;
-                }
-            }
-        }
-    }
-
-    // 0x20 - space
-    //0x0a = linefeed
-}

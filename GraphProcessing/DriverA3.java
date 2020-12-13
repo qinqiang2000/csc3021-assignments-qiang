@@ -45,7 +45,7 @@ class Driver {
 	// Choose which format you want to read the graph in
 	// matrix = new SparseMatrixCOO( inputFileCOO );
 	//matrix = new SparseMatrixCSR( inputFileCSR );
-	 matrix = new SparseMatrixCSC( inputFileCSC );
+	 matrix = new SparseMatrixCSC( inputFileCSC, num_threads );
 
 	double tm_input = (double)(System.nanoTime() - tm_start) * 1e-9;
 	System.err.println( "Reading input: " + tm_input + " seconds" );
@@ -96,8 +96,17 @@ class Driver {
 		double tm_write = (double)(System.nanoTime() - tm_start) * 1e-9;
 		System.out.println( "Writing file: " + tm_write + " seconds" );
 	    } else if( algorithm.equalsIgnoreCase( "OPT" ) ) {
-		// TODO
-	    	System.out.println( "Need to make a choice: DS or CC?" );
+			int CC[] = ConnectedComponents.compute( matrix );
+
+			double tm_total = (double)(System.nanoTime() - tm_start) * 1e-9;
+			System.out.println( "Connected Components: total time: " + tm_total + " seconds" );
+			tm_start = System.nanoTime();
+
+			// Dump component sizes to file
+			writeToFile( outputFile, CC );
+
+			double tm_write = (double)(System.nanoTime() - tm_start) * 1e-9;
+			System.out.println( "Writing file: " + tm_write + " seconds" );
 	    } else {
 		System.err.println( "Unknown algorithm '" + algorithm + "'" );
 		return;
