@@ -19,7 +19,7 @@ import uk.ac.qub.csc3021.graph.*;
 // Main class with main() method. Performs the PageRank computation until
 // convergence is reached.
 class Driver {
-   public static void main( String args[] ) {
+   public static void main( String args[] ) throws Exception {
 	if( args.length < 6 ) {
 	    System.err.println( "Usage: java Driver inputfile-COO inputfile-CSR inputfile-CSC algorithm num-threads outputfile" );
 	    return;
@@ -41,19 +41,20 @@ class Driver {
 	long tm_start = System.nanoTime();
 
 	SparseMatrix matrix;
+	matrix = null;
 
 	// Choose which format you want to read the graph in
 	// matrix = new SparseMatrixCOO( inputFileCOO );
 	//matrix = new SparseMatrixCSR( inputFileCSR );
-	 matrix = new SparseMatrixCSC( inputFileCSC, num_threads );
+//	 matrix = new SparseMatrixCSC( inputFileCSC, num_threads );
 
 	double tm_input = (double)(System.nanoTime() - tm_start) * 1e-9;
 	System.err.println( "Reading input: " + tm_input + " seconds" );
 	tm_start = System.nanoTime();
 
-	// What facilities for parallel execution do we have?
-	// ParallelContextHolder.set( new ParallelContextQ2( num_threads ) );
-	ParallelContextHolder.set( new ParallelContextQ2(num_threads) );
+//	// What facilities for parallel execution do we have?
+//	// ParallelContextHolder.set( new ParallelContextQ2( num_threads ) );
+//	ParallelContextHolder.set( new ParallelContextQ2(num_threads) );
 
 	try {
 	    if( algorithm.equalsIgnoreCase( "PR" ) ) {
@@ -96,7 +97,7 @@ class Driver {
 		double tm_write = (double)(System.nanoTime() - tm_start) * 1e-9;
 		System.out.println( "Writing file: " + tm_write + " seconds" );
 	    } else if( algorithm.equalsIgnoreCase( "OPT" ) ) {
-			int CC[] = ConnectedComponents.compute( matrix );
+			int CC[] = FileReadTests.compute(inputFileCSC);
 
 			double tm_total = (double)(System.nanoTime() - tm_start) * 1e-9;
 			System.out.println( "Connected Components: total time: " + tm_total + " seconds" );
@@ -112,7 +113,7 @@ class Driver {
 		return;
 	    }
 	} finally {
-	    ParallelContextHolder.get().terminate();
+	    //ParallelContextHolder.get().terminate();
 	}
 	System.err.println( "All done" );
    }

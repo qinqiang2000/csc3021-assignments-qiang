@@ -1,67 +1,57 @@
 package uk.ac.qub.csc3021.graph;
 
 import java.io.*;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.concurrent.CyclicBarrier;
+import java.util.concurrent.atomic.AtomicIntegerArray;
 
 public class FileReadTests {
 
-    public static void main(String[] args) throws Exception {
-
-        String inputFile = args[0];
-        int numThreads = Integer.parseInt(args[1]);
+    public static int[] compute(String inputFile) throws Exception {
 
         InputStream inputStream = new FileInputStream(inputFile);
         InputStreamReader is = new InputStreamReader(inputStream, "UTF-8");
         BufferedReader rd = new BufferedReader(is);
-
         rd.readLine();
-
         int numVertices = getNext(rd);
         int numEdges = getNext(rd);
-
-
         rd.close();
-
         inputStream = new FileInputStream(inputFile);
+        is = new InputStreamReader(inputStream, "UTF-8");
+        rd = new BufferedReader(is);
 
-        byte[] byteRead = new byte[8192];
+        for(int i = 0; i < 3; i++) {
+            rd.readLine();
+        }
 
-        UTF8Processor proc = new UTF8Processor(numVertices, numEdges, numThreads);
+        DSCCRelax relax = new DSCCRelax(numVertices);
 
-        System.out.println("vertices read: " + numVertices);
-        System.out.println("edges read: " + numEdges);
+        for(int i = 0; i < numVertices; i++) {
+            String line = rd.readLine();
 
-        long startPreProcess = System.nanoTime();
-        while ((inputStream.read(byteRead)) != -1) {
-            boolean end = proc.processBytes(byteRead);
-            if(end) {
-                break;
+            String[] split = line.split(" ");
+
+            for (int j = 1; j < split.length; j++) {
+                relax.relax(i, Integer.parseInt(split[j]));
             }
         }
 
-        System.out.println("vertices calculated: " + proc.lineNumber);
-        System.out.println("edges calculated: " + proc.edgeNumber);
+        // 1. Count number of components
+        //    and map component IDs to narrow domain
+        int ncc = 0;
+        int remap[] = new int[numVertices];
+        for (int i = 0; i < numVertices; ++i)
+            if (relax.find(i) == i)
+                remap[i] = ncc++;
 
-        int[] index = new int[numVertices + 1];
-        int[] sources = new int[numEdges];
 
-        index[numVertices] = numEdges;
+        // 2. Calculate size of each component
+        int sizes[] = new int[ncc];
+        for (int i = 0; i < numVertices; ++i)
+            ++sizes[remap[relax.find(i)]];
 
-        CyclicBarrier barrier = new CyclicBarrier(numThreads+1);
-
-        for(int i = 0; i < numThreads-1; i++) {
-            ReadFileThread thread = new ReadFileThread(proc.chunkStarts[i][0], proc.chunkStarts[i+1][0], inputFile, sources, index, barrier, proc.chunkStarts[i][1], proc.chunkStarts[i][2]);
-            thread.start();
-        }
-
-        ReadFileThread thread = new ReadFileThread(proc.chunkStarts[numThreads-1][0], numVertices, inputFile, sources, index, barrier, proc.chunkStarts[numThreads-1][1], proc.chunkStarts[numThreads-1][2]);
-        thread.start();
-
-        barrier.await();
-
-        double timeToPreProcess = (double) (System.nanoTime() - startPreProcess) * 1e-9;
-        System.err.println("Time in preprocess: " + timeToPreProcess + " seconds");
-
+       return sizes;
     }
 
 
@@ -71,5 +61,90 @@ public class FileReadTests {
             throw new Exception("premature end of file");
         return Integer.parseInt(line);
     }
+
+    private static class DSCCRelax implements Relax {
+
+        private Node[] parents;
+
+        DSCCRelax(int length) {
+            parents = new DSCCRelax.Node[length];
+
+            for (int i = 0; i < length; i++) {
+                parents[i] = new Node(i);
+            }
+        }
+
+        public void relax(int src, int dst) {
+            union(src, dst);
+        }
+
+        public int find(int x) {
+
+            Node current = parents[x];
+
+            List<Node> nodes = new ArrayList<>();
+
+
+            while (current.parent != current) {
+                current = current.parent;
+            }
+
+            for (Node node:
+                    nodes) {
+                node.parent = current;
+            }
+
+            return current.name;
+        }
+
+        private Node findNode(int x) {
+            Node current = parents[x];
+
+            List<Node> nodes = new ArrayList<>();
+
+            while (current.parent != current) {
+                nodes.add(current);
+                current = current.parent;
+            }
+
+            for (Node node:
+                    nodes) {
+                node.parent = current;
+            }
+
+            return current;
+        }
+
+        private boolean sameSet(int x, int y) {
+            return find(x) == find(y);
+        }
+
+        private void union(int x, int y) {
+
+            if (sameSet(x, y))
+                return;
+
+            Node xSet = findNode(x);
+            Node ySet = findNode(y);
+
+            if (ySet.name < xSet.name) {
+                xSet.parent = ySet;
+            } else {
+                ySet.parent = xSet;
+            }
+        }
+
+        private class Node {
+
+            public Node parent;
+            public int name;
+
+            public Node(int name) {
+                this.name = name;
+                this.parent = this;
+            }
+        }
+    }
+
 }
 

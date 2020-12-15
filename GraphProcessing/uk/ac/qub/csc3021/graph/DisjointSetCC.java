@@ -7,6 +7,7 @@ import java.util.concurrent.atomic.AtomicIntegerArray;
 // Calculate the connected components using disjoint set data structure
 // This algorithm only works correctly for undirected graphs
 public class DisjointSetCC {
+
     public static int[] compute(SparseMatrix matrix) {
         long tm_start = System.nanoTime();
 
