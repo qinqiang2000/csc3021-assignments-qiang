@@ -82,17 +82,19 @@ public class DisjointSetCC {
 
             Node current = parents[x];
 
-            List<Node> nodes = new ArrayList<>();
+            Node[] nodes = new Node[128];
 
+            int index = 0;
 
             while (current.parent != current) {
                 current = current.parent;
+                nodes[index++] = current;
             }
 
-            for (Node node:
-                    nodes) {
-                node.parent = current;
+            for (int i = 0; i < index; i++) {
+                nodes[i].parent = current;
             }
+
 
             return current.name;
         }
@@ -100,16 +102,8 @@ public class DisjointSetCC {
         private Node findNode(int x) {
             Node current = parents[x];
 
-            List<Node> nodes = new ArrayList<>();
-
             while (current.parent != current) {
-                nodes.add(current);
                 current = current.parent;
-            }
-
-            for (Node node:
-                 nodes) {
-                node.parent = current;
             }
 
             return current;

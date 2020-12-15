@@ -1,44 +1,125 @@
 package uk.ac.qub.csc3021.graph;
 
 import java.io.*;
-import java.util.ArrayList;
-import java.util.List;
 import java.util.concurrent.CyclicBarrier;
-import java.util.concurrent.atomic.AtomicIntegerArray;
+import java.util.concurrent.atomic.AtomicInteger;
 
 public class FileReadTests {
 
-    public static int[] compute(String inputFile) throws Exception {
+    public static int[] compute(String inputFile, int numThreads) throws Exception {
+        FileInputStream inputStream = new FileInputStream(inputFile);
 
-        InputStream inputStream = new FileInputStream(inputFile);
+        long fileSize = inputStream.getChannel().size();
+
         InputStreamReader is = new InputStreamReader(inputStream, "UTF-8");
         BufferedReader rd = new BufferedReader(is);
         rd.readLine();
         int numVertices = getNext(rd);
-        int numEdges = getNext(rd);
+
+        rd.close();
 
         double tm_before_create = System.nanoTime();
         DSCCRelax relax = new DSCCRelax(numVertices);
         double tm_after_create = System.nanoTime();
-        double tm_create_relax = (double)(tm_after_create - tm_before_create) * 1e-9;
+        double tm_create_relax = (tm_after_create - tm_before_create) * 1e-9;
         System.out.println("Time to create relax: " + tm_create_relax);
 
-        for(int i = 0; i < numVertices; i++) {
-            String line = rd.readLine();
+        long chunkSize = (fileSize + numThreads - 1) / numThreads;
 
-            String[] split = line.split(" ");
+        ProcessThread[] tasks = new ProcessThread[numThreads];
 
-            for (int j = 1; j < split.length; j++) {
-                relax.relax(i, Integer.parseInt(split[j]));
+        AtomicInteger integer = new AtomicInteger();
+
+        for(int i = numThreads-1; i >= 1; i--) {
+            long start = i * chunkSize;
+            long end  = Math.min(start + chunkSize, fileSize);
+            tasks[i] = new ProcessThread(start, end, integer, relax, inputFile, i, numVertices);
+            tasks[i].start();
+        }
+
+        long end = Math.min(chunkSize, fileSize);
+
+        int BUFFER_SIZE = 65536;
+
+        try {
+            long byteNumber = 0;
+            inputStream = new FileInputStream(inputFile);
+
+            byte[] startByte = new byte[1];
+
+            int byteFound = 0;
+
+            while(byteFound < 3) {
+                inputStream.read(startByte);
+                byteNumber++;
+
+                if(startByte[0] == 0x0a) {
+                    byteFound++;
+                }
+            }
+
+            int i;
+            byte[] byteBuffer = new byte[BUFFER_SIZE];
+            boolean startOfLine = true;
+            int currentNumber = 0;
+            int currentVertex = 0;
+            int unconverted;
+
+            outerLoop:
+            while (true) {
+                inputStream.read(byteBuffer, 0, BUFFER_SIZE);
+                for (i = 0; i < BUFFER_SIZE; i++) {
+
+                    unconverted = byteBuffer[i];
+
+                    if(unconverted < 48) {
+                        if(!startOfLine) {
+                            relax.relax(currentVertex, currentNumber);
+                        }
+                        else {
+                            currentVertex = currentNumber;
+                            startOfLine = false;
+                        }
+
+                        currentNumber = 0;
+
+                        // handle other bytes....
+                        if(unconverted == 10) {
+                            if((byteNumber+i) > end) {
+                                break outerLoop;
+                            }
+                            startOfLine = true;
+                        }
+                    }
+                    else {
+                        currentNumber = (currentNumber*10) + unconverted - 48;
+                    }
+                }
+
+                byteNumber += BUFFER_SIZE;
+            }
+
+            synchronized (integer) {
+                integer.incrementAndGet();
+            }
+
+            inputStream.close();
+        }
+        catch (Exception e) {
+
+        }
+
+
+        synchronized (integer) {
+            while (integer.get() != numThreads) {
+                integer.wait();
             }
         }
 
         double tm_after_file = System.nanoTime();
-        double tm_do_file = (double)(tm_after_file - tm_after_create) * 1e-9;
 
-        System.out.println("Time to do file: " + tm_do_file);
-
-
+        double tm_to_file = (double)(tm_after_file - tm_after_create) * 1e-9;
+        System.out.println("Time to process file: " + tm_to_file);
 
         // 1. Count number of components
         //    and map component IDs to narrow domain
@@ -47,7 +128,6 @@ public class FileReadTests {
         for (int i = 0; i < numVertices; ++i)
             if (relax.find(i) == i)
                 remap[i] = ncc++;
-
 
         // 2. Calculate size of each component
         int sizes[] = new int[ncc];
@@ -58,10 +138,106 @@ public class FileReadTests {
 
         double tm_do_postprocessing = (double)(tm_after_mapping - tm_after_file) * 1e-9;
 
-
         System.out.println("PostProcessing: " + tm_do_postprocessing);
 
         return sizes;
+    }
+
+    private static class ProcessThread extends Thread {
+
+        private long start;
+        private long end;
+        private AtomicInteger integer;
+        private DSCCRelax relax;
+        private String inputFile;
+        private int threadId;
+        int finalVertex;
+
+        public ProcessThread(long start, long end, AtomicInteger integer, DSCCRelax relax, String inputFile, int threadId, int numVertices) {
+            this.start = start;
+            this.end = end;
+            this.integer = integer;
+            this.relax = relax;
+            this.inputFile = inputFile;
+            this.threadId = threadId;
+            this.finalVertex = numVertices-1;
+        }
+
+        private static final int BUFFER_SIZE = 65536;
+
+        @Override
+        public void run() {
+            try {
+                long byteNumber = start;
+                InputStream inputStream = new FileInputStream(inputFile);
+
+                byte[] startByte = new byte[1];
+
+                inputStream.skip(start);
+                boolean byteFound = false;
+
+                while(!byteFound) {
+                    inputStream.read(startByte);
+                    byteNumber++;
+
+                    if(startByte[0] == 0x0a) {
+                        byteFound = true;
+                    }
+                }
+
+                int i;
+                byte[] byteBuffer = new byte[BUFFER_SIZE];
+                boolean startOfLine = true;
+                int currentNumber = 0;
+                int currentVertex = 0;
+                int unconverted;
+
+outerLoop:
+                while (true) {
+                    inputStream.read(byteBuffer, 0, BUFFER_SIZE);
+                    for (i = 0; i < BUFFER_SIZE; i++) {
+
+                        unconverted = byteBuffer[i];
+
+                        if(unconverted < 48) {
+                            if(!startOfLine) {
+                                relax.relax(currentVertex, currentNumber);
+                            }
+                            else {
+                                currentVertex = currentNumber;
+                                startOfLine = false;
+                            }
+
+                            currentNumber = 0;
+
+                            // handle other bytes....
+                            if(unconverted == 10) {
+                                if((byteNumber+i) > end || currentVertex == finalVertex) {
+                                    break outerLoop;
+                                }
+                                startOfLine = true;
+                            }
+                        }
+                        else {
+                            currentNumber = (currentNumber*10) + unconverted - 48;
+                        }
+                    }
+
+                    byteNumber += BUFFER_SIZE;
+                }
+
+                synchronized (integer) {
+                    integer.incrementAndGet();
+                    integer.notify();
+                }
+
+                inputStream.close();
+            }
+            catch (Exception e) {
+
+            }
+        }
+
     }
 
 
@@ -72,7 +248,7 @@ public class FileReadTests {
         return Integer.parseInt(line);
     }
 
-    private static class DSCCRelax implements Relax {
+    private static class DSCCRelax {
 
         private Node[] parents;
 
@@ -92,16 +268,8 @@ public class FileReadTests {
 
             Node current = parents[x];
 
-            List<Node> nodes = new ArrayList<>();
-
-
             while (current.parent != current) {
-                current = current.parent;
-            }
-
-            for (Node node:
-                    nodes) {
-                node.parent = current;
+                current = current.parent.parent;
             }
 
             return current.name;
@@ -110,32 +278,20 @@ public class FileReadTests {
         private Node findNode(int x) {
             Node current = parents[x];
 
-            List<Node> nodes = new ArrayList<>();
-
             while (current.parent != current) {
-                nodes.add(current);
-                current = current.parent;
-            }
-
-            for (Node node:
-                    nodes) {
-                node.parent = current;
+                current = current.parent.parent;
             }
 
             return current;
         }
 
-        private boolean sameSet(int x, int y) {
-            return find(x) == find(y);
-        }
-
         private void union(int x, int y) {
-
-            if (sameSet(x, y))
-                return;
 
             Node xSet = findNode(x);
             Node ySet = findNode(y);
+
+            if(xSet.name == ySet.name)
+                return;
 
             if (ySet.name < xSet.name) {
                 xSet.parent = ySet;
