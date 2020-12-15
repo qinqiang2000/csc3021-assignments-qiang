@@ -16,16 +16,12 @@ public class FileReadTests {
         rd.readLine();
         int numVertices = getNext(rd);
         int numEdges = getNext(rd);
-        rd.close();
-        inputStream = new FileInputStream(inputFile);
-        is = new InputStreamReader(inputStream, "UTF-8");
-        rd = new BufferedReader(is);
 
-        for(int i = 0; i < 3; i++) {
-            rd.readLine();
-        }
-
+        double tm_before_create = System.nanoTime();
         DSCCRelax relax = new DSCCRelax(numVertices);
+        double tm_after_create = System.nanoTime();
+        double tm_create_relax = (double)(tm_after_create - tm_before_create) * 1e-9;
+        System.out.println("Time to create relax: " + tm_create_relax);
 
         for(int i = 0; i < numVertices; i++) {
             String line = rd.readLine();
@@ -36,6 +32,13 @@ public class FileReadTests {
                 relax.relax(i, Integer.parseInt(split[j]));
             }
         }
+
+        double tm_after_file = System.nanoTime();
+        double tm_do_file = (double)(tm_after_file - tm_after_create) * 1e-9;
+
+        System.out.println("Time to do file: " + tm_do_file);
+
+
 
         // 1. Count number of components
         //    and map component IDs to narrow domain
@@ -51,7 +54,14 @@ public class FileReadTests {
         for (int i = 0; i < numVertices; ++i)
             ++sizes[remap[relax.find(i)]];
 
-       return sizes;
+        double tm_after_mapping = System.nanoTime();
+
+        double tm_do_postprocessing = (double)(tm_after_mapping - tm_after_file) * 1e-9;
+
+
+        System.out.println("PostProcessing: " + tm_do_postprocessing);
+
+        return sizes;
     }
 
 
