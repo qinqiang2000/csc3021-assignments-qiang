@@ -30,85 +30,12 @@ public class FileReadTests {
 
         AtomicInteger integer = new AtomicInteger();
 
-        for(int i = numThreads-1; i >= 1; i--) {
+        for(int i = numThreads-1; i >= 0; i--) {
             long start = i * chunkSize;
             long end  = Math.min(start + chunkSize, fileSize);
             tasks[i] = new ProcessThread(start, end, integer, relax, inputFile, i, numVertices);
             tasks[i].start();
         }
-
-        long end = Math.min(chunkSize, fileSize);
-
-        int BUFFER_SIZE = 65536;
-
-        try {
-            long byteNumber = 0;
-            inputStream = new FileInputStream(inputFile);
-
-            byte[] startByte = new byte[1];
-
-            int byteFound = 0;
-
-            while(byteFound < 3) {
-                inputStream.read(startByte);
-                byteNumber++;
-
-                if(startByte[0] == 0x0a) {
-                    byteFound++;
-                }
-            }
-
-            int i;
-            byte[] byteBuffer = new byte[BUFFER_SIZE];
-            boolean startOfLine = true;
-            int currentNumber = 0;
-            int currentVertex = 0;
-            int unconverted;
-
-            outerLoop:
-            while (true) {
-                inputStream.read(byteBuffer, 0, BUFFER_SIZE);
-                for (i = 0; i < BUFFER_SIZE; i++) {
-
-                    unconverted = byteBuffer[i];
-
-                    if(unconverted < 48) {
-                        if(!startOfLine) {
-                            relax.relax(currentVertex, currentNumber);
-                        }
-                        else {
-                            currentVertex = currentNumber;
-                            startOfLine = false;
-                        }
-
-                        currentNumber = 0;
-
-                        // handle other bytes....
-                        if(unconverted == 10) {
-                            if((byteNumber+i) > end) {
-                                break outerLoop;
-                            }
-                            startOfLine = true;
-                        }
-                    }
-                    else {
-                        currentNumber = (currentNumber*10) + unconverted - 48;
-                    }
-                }
-
-                byteNumber += BUFFER_SIZE;
-            }
-
-            synchronized (integer) {
-                integer.incrementAndGet();
-            }
-
-            inputStream.close();
-        }
-        catch (Exception e) {
-
-        }
-
 
         synchronized (integer) {
             while (integer.get() != numThreads) {
