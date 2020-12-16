@@ -29,7 +29,8 @@ public class FileReadTests {
         ProcessThread[] tasks = new ProcessThread[numThreads];
 
         AtomicInteger integer = new AtomicInteger();
-
+        
+        // Start threads in reverse order as the ones processing the end of the file have the most work to do skipping to the start
         for(int i = numThreads-1; i >= 0; i--) {
             long start = i * chunkSize;
             long end  = Math.min(start + chunkSize, fileSize);
@@ -102,50 +103,83 @@ public class FileReadTests {
 
                 inputStream.skip(start);
                 boolean byteFound = false;
-
+                
+                //Skip to the start of the next line
                 while(!byteFound) {
                     inputStream.read(startByte);
                     byteNumber++;
-
+                    
+                    // 0x0a is line feed.
                     if(startByte[0] == 0x0a) {
                         byteFound = true;
                     }
                 }
 
                 int i;
+                
+                // Where the bytes from the file will be kept during processing
                 byte[] byteBuffer = new byte[BUFFER_SIZE];
+
+                // The flag that there has been a line-feed, and therefor the next number will be the vertex
                 boolean startOfLine = true;
+                
+                // The current number being read.
                 int currentNumber = 0;
+
+                // The vertex of the current line (first number in the line)
                 int currentVertex = 0;
+
+                // The raw int value of the UTF-8
                 int unconverted;
 
+// We use a loop label here so we can break out to it on line 172.
 outerLoop:
                 while (true) {
                     inputStream.read(byteBuffer, 0, BUFFER_SIZE);
                     for (i = 0; i < BUFFER_SIZE; i++) {
 
                         unconverted = byteBuffer[i];
-
+                        
+                        // Less than 48 means not a digit
                         if(unconverted < 48) {
+                            // If we're in here, that means that we've come to the end of a number.
+                            // The current number must be processed.
+                            // If its the first number in the line, its the vertex number, and must be saved for later.
+                            // If it is NOT the first number in the line, its a source, and relax should be called.
+
+
+                            // if this is not the first number in the line, the current number must be a source. Therefore run union.
                             if(!startOfLine) {
                                 relax.relax(currentVertex, currentNumber);
                             }
                             else {
+                            // otherwise the current number must be the vertex number.
                                 currentVertex = currentNumber;
                                 startOfLine = false;
                             }
-
+                            
+                            // Throw away the current number, as it has finished processing.
                             currentNumber = 0;
 
-                            // handle other bytes....
+                            // 10 is line-feed (end of a line)
                             if(unconverted == 10) {
+
+                                // if we're past the end of the target chunk (but at the end of a line)
+                                // or we've already read in the final vertex in the file and have finished its line
+                                // we can stop
                                 if((byteNumber+i) > end || currentVertex == finalVertex) {
+
+                                    //break out of the grandparent loop
                                     break outerLoop;
                                 }
+
+                                // Flag that the next number is going to be a vertex, as itll be the first number in a new line
                                 startOfLine = true;
                             }
                         }
                         else {
+                            // convert the utf-8 char to a digit by reducing it by 48
+                            // add to existing number by shifting the digits left by multiplying by 10
                             currentNumber = (currentNumber*10) + unconverted - 48;
                         }
                     }
@@ -153,6 +187,7 @@ outerLoop:
                     byteNumber += BUFFER_SIZE;
                 }
 
+                //notify main thread of update.
                 synchronized (integer) {
                     integer.incrementAndGet();
                     integer.notify();
