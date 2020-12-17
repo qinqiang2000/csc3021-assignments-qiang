@@ -4,7 +4,7 @@ import java.io.*;
 import java.util.concurrent.CyclicBarrier;
 import java.util.concurrent.atomic.AtomicInteger;
 
-public class FileReadTests {
+public class DisjointSetCalculator {
 
     public static int[] compute(String inputFile, int numThreads) throws Exception {
         FileInputStream inputStream = new FileInputStream(inputFile);
@@ -34,13 +34,13 @@ public class FileReadTests {
         for(int i = numThreads-1; i >= 0; i--) {
             long start = i * chunkSize;
             long end  = Math.min(start + chunkSize, fileSize);
-            tasks[i] = new ProcessThread(start, end, integer, relax, inputFile, i, numVertices);
+            tasks[i] = new ProcessThread(start, end, integer, relax, inputFile, numVertices);
             tasks[i].start();
         }
 
         synchronized (integer) {
             while (integer.get() != numThreads) {
-                integer.wait();
+                integer.wait(1300);
             }
         }
 
@@ -54,13 +54,13 @@ public class FileReadTests {
         int ncc = 0;
         int remap[] = new int[numVertices];
         for (int i = 0; i < numVertices; ++i)
-            if (relax.find(i) == i)
+            if (relax.nodes[i] == i)
                 remap[i] = ncc++;
 
         // 2. Calculate size of each component
         int sizes[] = new int[ncc];
         for (int i = 0; i < numVertices; ++i)
-            ++sizes[remap[relax.find(i)]];
+            ++sizes[remap[relax.nodes[i]]];
 
         double tm_after_mapping = System.nanoTime();
 
@@ -78,17 +78,17 @@ public class FileReadTests {
         private AtomicInteger integer;
         private DSCCRelax relax;
         private String inputFile;
-        private int threadId;
         int finalVertex;
+        int[] nodes;
 
-        public ProcessThread(long start, long end, AtomicInteger integer, DSCCRelax relax, String inputFile, int threadId, int numVertices) {
+        public ProcessThread(long start, long end, AtomicInteger integer, DSCCRelax relax, String inputFile, int numVertices) {
             this.start = start;
             this.end = end;
             this.integer = integer;
             this.relax = relax;
             this.inputFile = inputFile;
-            this.threadId = threadId;
             this.finalVertex = numVertices-1;
+            this.nodes = relax.nodes;
         }
 
         private static final int BUFFER_SIZE = 65536;
@@ -120,7 +120,7 @@ public class FileReadTests {
                 // Where the bytes from the file will be kept during processing
                 byte[] byteBuffer = new byte[BUFFER_SIZE];
 
-                // The flag that there has been a line-feed, and therefor the next number will be the vertex
+                // The flag that there has been a line-feed, and therefore the next number will be the vertex
                 boolean startOfLine = true;
                 
                 // The current number being read.
@@ -132,12 +132,14 @@ public class FileReadTests {
                 // The raw int value of the UTF-8
                 int unconverted;
 
-// We use a loop label here so we can break out to it on line 172.
+// We use a loop label here so we can break out to it on line 173.
 outerLoop:
                 while (true) {
                     inputStream.read(byteBuffer, 0, BUFFER_SIZE);
                     for (i = 0; i < BUFFER_SIZE; i++) {
 
+                        // Think we're doing a cast under the covers here.
+                        // saving it as an int to use later on appears to save time.
                         unconverted = byteBuffer[i];
                         
                         // Less than 48 means not a digit
@@ -150,7 +152,7 @@ outerLoop:
 
                             // if this is not the first number in the line, the current number must be a source. Therefore run union.
                             if(!startOfLine) {
-                                relax.relax(currentVertex, currentNumber);
+                                union(currentVertex, currentNumber);
                             }
                             else {
                             // otherwise the current number must be the vertex number.
@@ -173,14 +175,14 @@ outerLoop:
                                     break outerLoop;
                                 }
 
-                                // Flag that the next number is going to be a vertex, as itll be the first number in a new line
+                                // Flag that the next number is going to be a vertex, as it'll be the first number in a new line
                                 startOfLine = true;
                             }
                         }
                         else {
-                            // convert the utf-8 char to a digit by reducing it by 48
-                            // add to existing number by shifting the digits left by multiplying by 10
-                            currentNumber = (currentNumber*10) + unconverted - 48;
+                            // convert the utf-8 char to a digit by reducing it by 48 (with a bitwise operator)
+                            // add to existing number by shifting the digits left by multiplying by 10 (also with bit shifts)
+                            currentNumber = (currentNumber << 3) + (currentNumber << 1) + (unconverted & 0b1111);
                         }
                     }
 
@@ -200,6 +202,17 @@ outerLoop:
             }
         }
 
+        private void union(int x, int y) {
+
+            if(nodes[x] == nodes[y])
+                return;
+
+            if (nodes[y] < nodes[x]) {
+                nodes[x] = nodes[y];
+            } else {
+                nodes[y] = nodes[x];
+            }
+        }
     }
 
 
@@ -212,64 +225,13 @@ outerLoop:
 
     private static class DSCCRelax {
 
-        private Node[] parents;
+        public int[] nodes;
 
         DSCCRelax(int length) {
-            parents = new DSCCRelax.Node[length];
+            nodes = new int[length];
 
             for (int i = 0; i < length; i++) {
-                parents[i] = new Node(i);
-            }
-        }
-
-        public void relax(int src, int dst) {
-            union(src, dst);
-        }
-
-        public int find(int x) {
-
-            Node current = parents[x];
-
-            while (current.parent != current) {
-                current = current.parent.parent;
-            }
-
-            return current.name;
-        }
-
-        private Node findNode(int x) {
-            Node current = parents[x];
-
-            while (current.parent != current) {
-                current = current.parent.parent;
-            }
-
-            return current;
-        }
-
-        private void union(int x, int y) {
-
-            Node xSet = findNode(x);
-            Node ySet = findNode(y);
-
-            if(xSet.name == ySet.name)
-                return;
-
-            if (ySet.name < xSet.name) {
-                xSet.parent = ySet;
-            } else {
-                ySet.parent = xSet;
-            }
-        }
-
-        private class Node {
-
-            public Node parent;
-            public int name;
-
-            public Node(int name) {
-                this.name = name;
-                this.parent = this;
+                nodes[i] = i;
             }
         }
     }

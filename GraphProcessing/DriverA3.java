@@ -1,18 +1,12 @@
 /*
 * Use command-line flag -ea for java VM to enable assertions.
 */
-import java.io.File;
-import java.io.BufferedReader;
-import java.io.InputStreamReader;
-import java.io.FileInputStream;
 import java.io.BufferedWriter;
 import java.io.OutputStreamWriter;
 import java.io.FileOutputStream;
 import java.io.PrintWriter;
-import java.io.IOException;
 import java.io.FileNotFoundException;
 import java.io.UnsupportedEncodingException;
-import java.util.StringTokenizer;
 
 import uk.ac.qub.csc3021.graph.*;
 
@@ -26,7 +20,7 @@ class Driver {
 
 		long tm_start = System.nanoTime();
 
-		int CC[] = FileReadTests.compute(inputFileCSC, num_threads);
+		int CC[] = DisjointSetCalculator.compute(inputFileCSC, num_threads);
 		writeToFile( outputFile, CC );
 
 	   long timeEnd = System.nanoTime();
