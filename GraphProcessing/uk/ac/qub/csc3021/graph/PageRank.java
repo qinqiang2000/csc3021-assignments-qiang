@@ -21,8 +21,6 @@ public class PageRank {
         double y[];
     }
 
-    ;
-
     public static double[] compute(SparseMatrix matrix) {
         long tm_start = System.nanoTime();
 
@@ -45,33 +43,24 @@ public class PageRank {
         int outdeg[] = new int[n];
         matrix.calculateOutDegree(outdeg);
 
-        double tm_init = (double) (System.nanoTime() - tm_start) * 1e-9;
-        System.err.println("Initialisation: " + tm_init + " seconds");
-        tm_start = System.nanoTime();
+        double tm_init = (double)(System.nanoTime() - tm_start) * 1e-9;
+        System.out.println("PageRank initialization: " + tm_init + " seconds");
 
         PageRankRelax PRrelax = new PageRankRelax(outdeg, d, x, y);
         ParallelContext context = ParallelContextHolder.get();
 
-        double totalIterateTime = 0.0d;
-
         while (iter < max_iter && delta > tol) {
             // Power iteration step.
+            long tm_iter = System.nanoTime();
+
             // 1. Transfering weight over out-going links (summation part)
-            long startIterate = System.nanoTime();
             context.iterate(matrix, PRrelax);
-            double timeInIterate = (double) (System.nanoTime() - startIterate) * 1e-9;
-            System.err.println("Time in iterate: " + timeInIterate + " seconds");
-            totalIterateTime += timeInIterate;
+
             // 2. Constants (1-d)v[i] added in separately.
             double w = 1.0 - sum(y, n); // ensure y[] will sum to 1
             // System.out.println( "scale with w=" +  w + " add " + (w*v[0]) );
             for (int i = 0; i < n; ++i)
                 y[i] += w * v[i];
-
-
-	    //for( int i=0; i < n; ++i )
-		//System.err.println( "Y " + i + " " + y[i] );
-
 
             // Calculate residual error
             delta = normdiff(x, y, n);
@@ -84,30 +73,23 @@ public class PageRank {
                 y[i] = 0.;
             }
 
-	    /*
-	    for( int i=0; i < n; ++i )
-		System.err.println( i + " " + x[i] );
-	    */
-
-            double tm_step = (double) (System.nanoTime() - tm_start) * 1e-9;
+            double tm_step = (double)(System.nanoTime() - tm_iter) * 1e-9;
             if (verbose)
-                System.err.println("iteration " + iter + ": residual error="
-                        + delta + " xnorm=" + sum(x, n)
-                        + " time=" + tm_step + " seconds");
-            tm_start = System.nanoTime();
+                System.out.println("iteration " + iter + ": residual error="
+                    + delta + " xnorm=" + sum(x, n)
+                    + " time=" + tm_step + " seconds");
         }
 
         if (delta > tol) {
-            System.err.println("Error: solution has not converged.");
+            System.out.println("Error: solution has not converged.");
             // We should ignore the result if it has not converged and
             // return null in this case. However, to help you debugging,
             // we'll return whatever you came up with.
             // return null;
         }
 
-        System.err.println("Total time in iterate: " + totalIterateTime + " seconds.");
-//        double timeNotIterating = totalTime - totalIterateTime;
-//        System.err.println("Time not iterating: " + timeNotIterating + " seconds.");
+        System.out.println("Total time in PageRank iterate: "
+            + (double)(System.nanoTime() - tm_start) * 1e-9 + " seconds.");
 
         return x;
     }
@@ -130,7 +112,7 @@ public class PageRank {
         matrix.calculateOutDegree(outdeg);
 
         double tm_init = (double) (System.nanoTime() - tm_start) * 1e-9;
-        System.err.println("Initialisation: " + tm_init + " seconds");
+        System.out.println("Initialisation: " + tm_init + " seconds");
         tm_start = System.nanoTime();
 
         PageRankRelax PRrelax = new PageRankRelax(outdeg, d, x, y);
@@ -140,7 +122,7 @@ public class PageRank {
         // Perform one step of the power iteration
         context.iterate(matrix, PRrelax);
         double timeInIterate = (double) (System.nanoTime() - startIterate) * 1e-9;
-        System.err.println("Time in iterate: " + timeInIterate + " seconds");
+        System.out.println("Time in iterate: " + timeInIterate + " seconds");
 
         // Constants (1-d)v[i] added in separately.
         double w = 1.0 - sum(y, n);
@@ -150,16 +132,16 @@ public class PageRank {
         // Calculate residual error
         double delta = normdiff(x, y, n);
 
-        System.err.println("delta: " + delta);
+        System.out.println("delta: " + delta);
 
         if (Double.isNaN(delta)) {
-            System.err.println("Error: NaN value encountered: delta=" + delta);
+            System.out.println("Error: NaN value encountered: delta=" + delta);
             System.exit(43); // Kattis
         } else if (delta > tol) {
-            System.err.println("Error: tolerance not met: delta=" + delta);
+            System.out.println("Error: tolerance not met: delta=" + delta);
             System.exit(43); // Kattis
         } else {
-            System.err.println("Success.");
+            System.out.println("Success.");
             System.exit(42); // Kattis
         }
     }

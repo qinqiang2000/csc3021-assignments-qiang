@@ -3,3 +3,8 @@
 *.sh~
 *.zip
 .DS_Store
+out/*
+GraphProcessing/lib
+GraphProcessing/out
+*.xml
+.idea

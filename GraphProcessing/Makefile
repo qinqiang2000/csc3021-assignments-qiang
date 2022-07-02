@@ -4,14 +4,14 @@ JAVAC = javac
 CLASS_STEMS = Relax SparseMatrix SparseMatrixCOO SparseMatrixCSR \
 	      SparseMatrixCSC PageRank ConnectedComponents ParallelContext \
 	      ParallelContextHolder ParallelContextSingleThread \
-	      ParallelContextQ2 ParallelContextQ3 DisjointSetCC
+	      ParallelContextSimple DisjointSetCC
 
 PKG_CLASS_FILES = $(patsubst %,uk/ac/qub/csc3021/graph/%.class,$(CLASS_STEMS))
 PKG_JAVA_FILES = $(patsubst %,uk/ac/qub/csc3021/graph/%.java,$(CLASS_STEMS))
 
 PACKAGE = lib/graph.jar
 
-CLASS_FILES = DriverA2.class
+CLASS_FILES = DriverA3.class
 
 SUBMIT_A2 = DriverA2.java $(PKG_JAVA_FILES)
 SUBMIT_A3 = DriverA3.java $(PKG_JAVA_FILES)
