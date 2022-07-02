@@ -1,3 +1,0 @@
-class SQLStatement {
-    protected SQLStatement() { }
-}
