@@ -5,6 +5,7 @@ import java.util.concurrent.atomic.AtomicIntegerArray;
 // Calculate the connected components using disjoint set data structure
 // This algorithm only works correctly for undirected graphs
 public class DisjointSetCC {
+
     public static int[] compute(SparseMatrix matrix) {
         long tm_start = System.nanoTime();
 
@@ -14,7 +15,7 @@ public class DisjointSetCC {
 
         for (int i = 0; i < n; ++i) {
             // Each vertex is a set on their own
-
+            parent.set(i, i);
         }
 
         DSCCRelax DSCCrelax = new DSCCRelax(parent);
@@ -29,8 +30,7 @@ public class DisjointSetCC {
         context.iterate(matrix, DSCCrelax);
 
         double tm_step = (double) (System.nanoTime() - tm_start) * 1e-9;
-        if (verbose)
-            System.err.println("processing time=" + tm_step + " seconds");
+        System.err.println("processing time=" + tm_step + " seconds");
         tm_start = System.nanoTime();
 
         // Post-process the labels
@@ -38,13 +38,12 @@ public class DisjointSetCC {
         // 1. Count number of components
         //    and map component IDs to narrow domain
         int ncc = 0;
-        int remap[] = new int[n];
+        int[] remap = new int[n];
         for (int i = 0; i < n; ++i)
             if (DSCCrelax.find(i) == i)
                 remap[i] = ncc++;
 
-        if (verbose)
-            System.err.println("Number of components: " + ncc);
+        System.err.println("Number of components: " + ncc);
 
         // 2. Calculate size of each component
         int sizes[] = new int[ncc];
@@ -57,10 +56,7 @@ public class DisjointSetCC {
         return sizes;
     }
 
-    ;
-
     private static class DSCCRelax implements Relax {
-
         private static Node[] parents;
 
         DSCCRelax(AtomicIntegerArray parent_) {
@@ -76,11 +72,17 @@ public class DisjointSetCC {
         }
 
         public int find(int x) {
-
             Node current = parents[x];
+            Node[] nodes = new Node[128];
 
+            int index = 0;
             while (current.parent != current) {
                 current = current.parent;
+                nodes[index++] = current;
+            }
+
+            for (int i = 0; i < index; i++) {
+                nodes[i].parent = current;
             }
 
             return current.name;
@@ -88,7 +90,6 @@ public class DisjointSetCC {
 
         private Node findNode(int x) {
             Node current = parents[x];
-
             while (current.parent != current) {
                 current = current.parent;
             }
@@ -101,7 +102,6 @@ public class DisjointSetCC {
         }
 
         private void union(int x, int y) {
-
             if (sameSet(x, y))
                 return;
 
@@ -116,7 +116,6 @@ public class DisjointSetCC {
         }
 
         private class Node {
-
             public Node parent;
             public int name;
 

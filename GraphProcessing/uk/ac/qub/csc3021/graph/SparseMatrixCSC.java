@@ -102,7 +102,6 @@ public class SparseMatrixCSC extends SparseMatrix {
     }
 
     public void iterate(Relax relax, int from, int to) {
-
         for (int i = from; i < to; ++i) {
             for (int j = index[i]; j < index[i + 1]; ++j) {
                 relax.relax(sources[j], i);
